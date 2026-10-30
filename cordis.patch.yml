@@ -1,0 +1,9 @@
+# dsh-window-size bundle patch
+#
+# Inserted into the profile's Loader layer when the bundle is installed.
+# The Host half is intentionally inert: the window size is a Client-side
+# presentation preference, so the Client module owns both the startup resize
+# and the settings page.
+- insert:
+    - id: dsh-window-size
+      name: 'dsh-window-size'

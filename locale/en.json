@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Window Size",
+    "description": "Set the default DeepSeek Harness desktop window size at startup, with 4:3 / 16:9 / 16:10 presets and user-saved presets."
+  }
+}

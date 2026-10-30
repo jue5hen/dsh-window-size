@@ -1,0 +1,53 @@
+{
+  "name": "dsh-window-size",
+  "version": "1.1.1",
+  "description": "Set the startup window size of DeepSeek Harness Desktop, with 4:3 / 16:9 / 16:10 presets, custom presets, and a visual settings panel.",
+  "type": "module",
+  "main": "index.js",
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "index.js",
+    "client.js",
+    "cordis.patch.yml",
+    "locale/*.json",
+    "icon.svg",
+    "README.md"
+  ],
+  "keywords": [
+    "dsh",
+    "deepseek-harness",
+    "plugin",
+    "window-size",
+    "electron",
+    "cordis"
+  ],
+  "author": "jue5hen",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jue5hen/dsh-window-size.git"
+  },
+  "homepage": "https://github.com/jue5hen/dsh-window-size#readme",
+  "bugs": {
+    "url": "https://github.com/jue5hen/dsh-window-size/issues"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-slots",
+        "@deepseek-ai/dsh-client-locale"
+      ]
+    }
+  }
+}
