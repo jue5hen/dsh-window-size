@@ -2,6 +2,8 @@
 
 **Start DeepSeek Harness Desktop at the window size you want.**
 
+[简体中文](README.md) · [Changelog](CHANGELOG.md)
+
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![validate](https://github.com/jue5hen/dsh-window-size/actions/workflows/validate.yml/badge.svg?branch=main)](https://github.com/jue5hen/dsh-window-size/actions/workflows/validate.yml)
 ![DSH](https://img.shields.io/badge/DSH-0.2.1--rc.5-4B6EF5.svg)
@@ -9,8 +11,6 @@
 ![Window size settings page](docs/screenshot.png)
 
 DSH Desktop always starts at **1280×820** and does not remember a resized window: `createWindow` hardcodes the size and there is no bounds save/restore logic. This plugin fills that gap — save a startup size in the settings panel and the window is resized during page startup, so the next launch opens at your size.
-
-[Chinese README](README.md)
 
 ## Features
 
@@ -112,7 +112,9 @@ dsh-window-size/
 ├─ locale/zh.json     panel title/description
 ├─ locale/en.json
 ├─ icon.svg
+├─ assets/icon-180.png   storefront icon (GitHub-hosted raster)
 ├─ docs/screenshot.png
+├─ screenshots.json      storefront screenshot manifest
 ├─ README.md / README.en.md
 ├─ CHANGELOG.md
 └─ LICENSE
@@ -130,7 +132,7 @@ GitHub Actions (`.github/workflows/validate.yml`) runs the same checks on every 
 
 ## Version
 
-See [CHANGELOG.md](CHANGELOG.md). Current version: **1.1.1**.
+See [CHANGELOG.md](CHANGELOG.md). Current version: **1.0.0**.
 
 ## License
 

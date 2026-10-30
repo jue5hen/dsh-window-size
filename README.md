@@ -2,6 +2,8 @@
 
 **让 DeepSeek Harness 桌面版按你设定的尺寸启动。**
 
+[English](README.en.md) · [更新日志](CHANGELOG.md)
+
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![validate](https://github.com/jue5hen/dsh-window-size/actions/workflows/validate.yml/badge.svg?branch=main)](https://github.com/jue5hen/dsh-window-size/actions/workflows/validate.yml)
 ![DSH](https://img.shields.io/badge/DSH-0.2.1--rc.5-4B6EF5.svg)
@@ -110,7 +112,9 @@ dsh-window-size/
 ├─ locale/zh.json      面板标题/描述
 ├─ locale/en.json
 ├─ icon.svg
+├─ assets/icon-180.png  商店图标（GitHub 托管的位图）
 ├─ docs/screenshot.png
+├─ screenshots.json     商店截图清单
 ├─ README.md / README.en.md
 ├─ CHANGELOG.md
 └─ LICENSE
@@ -128,7 +132,7 @@ node -e "for (const f of ['package.json','locale/zh.json','locale/en.json']) JSO
 
 ## 版本
 
-见 [CHANGELOG.md](CHANGELOG.md)。当前版本 **1.1.1**。
+见 [CHANGELOG.md](CHANGELOG.md)。当前版本 **1.0.0**。
 
 ## 许可证
 
