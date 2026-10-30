@@ -3,6 +3,7 @@
 **让 DeepSeek Harness 桌面版按你设定的尺寸启动。**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![validate](https://github.com/jue5hen/dsh-window-size/actions/workflows/validate.yml/badge.svg?branch=main)](https://github.com/jue5hen/dsh-window-size/actions/workflows/validate.yml)
 ![DSH](https://img.shields.io/badge/DSH-0.2.1--rc.5-4B6EF5.svg)
 
 ![窗口大小设置面板](docs/screenshot.png)
