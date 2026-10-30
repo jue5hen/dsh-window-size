@@ -132,7 +132,7 @@ node -e "for (const f of ['package.json','locale/zh.json','locale/en.json']) JSO
 
 ## 版本
 
-见 [CHANGELOG.md](CHANGELOG.md)。当前版本 **1.0.0**。
+见 [CHANGELOG.md](CHANGELOG.md)。当前版本 **1.0.1**。
 
 ## 许可证
 

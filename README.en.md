@@ -132,7 +132,7 @@ GitHub Actions (`.github/workflows/validate.yml`) runs the same checks on every 
 
 ## Version
 
-See [CHANGELOG.md](CHANGELOG.md). Current version: **1.0.0**.
+See [CHANGELOG.md](CHANGELOG.md). Current version: **1.0.1**.
 
 ## License
 

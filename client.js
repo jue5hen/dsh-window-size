@@ -270,7 +270,12 @@ window.__ModuleLoader__.load({
 
     function resizeToSize(size) {
       try {
+        const frameX = Math.max(0, window.outerWidth - window.innerWidth);
+        const frameY = Math.max(0, window.outerHeight - window.innerHeight);
         window.resizeTo(size.width, size.height);
+        const left = (window.screen.availLeft || 0) + (window.screen.availWidth - (size.width + frameX)) / 2;
+        const top = (window.screen.availTop || 0) + (window.screen.availHeight - (size.height + frameY)) / 2;
+        window.moveTo(Math.max(0, Math.round(left)), Math.max(0, Math.round(top)));
       } catch (error) {
         /* The web client denies this; the desktop app allows it. */
       }
@@ -702,7 +707,9 @@ window.__ModuleLoader__.load({
       apply(ctx) {
         ctx.effect(() => ctx.locale.register(NS, DICTS), "dsh-window-size: dictionaries");
         const t = ctx.locale.bind(NS);
-        applyStoredSize();
+        /* The boot size is applied by the index injection in index.js, which
+           runs before the window is shown; resizing here would be too late
+           and would also re-add the frame while the window is hidden. */
         ctx.slots.inject("settings.section", () =>
           ctx.slots.register(
             {
