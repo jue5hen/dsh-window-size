@@ -54,9 +54,10 @@ The install records the plugin as a `file:` dependency in the `desktop` profile 
 
 A pure Client plugin with minimal impact:
 
-- The Host half `index.js` is an empty `apply()` — no services, no config, no file writes.
-- The Client module reads `localStorage` in `apply()` and calls `window.resizeTo(width, height)` after validation; saving writes the value back.
+- The Host half `index.js` registers nothing and writes no files: it subscribes to `webserver/index-inject` and pushes one inline boot script.
+- That script runs during page boot, before the window is shown, reads `localStorage`, validates the size, calls `window.resizeTo` and centers the window, so the app no longer starts at the default size and jumps. The Client module only owns the settings page, presets and saving.
 - `window.resizeTo` sets the **content area** (`innerWidth` / `innerHeight`), matching the app's own `BrowserWindow({ width: 1280, height: 820 })` convention. The outer frame is slightly larger (about 16×8 px on Windows).
+- While the window is hidden, `resizeTo` measures the frame differently (ask for `width-frameX × height-frameY`) and `moveTo` is ignored; after the window appears the plugin makes at most 5 centering attempts 350 ms apart, stopping within ±12 px, because repeated `moveTo` calls can trigger Windows maximize.
 - The size and presets live only in the local `localStorage['dsh-window-size:v2']`, inside the app data directory. Nothing is uploaded and other plugins are not touched.
 - Storage format:
 
@@ -80,6 +81,7 @@ A pure Client plugin with minimal impact:
 - **macOS / Linux desktop**: same Electron and DOM APIs; expected to work but not yet tested.
 - **Web build**: the plugin loads, but the panel is read-only and explains that the desktop app is required.
 - No dependency on other plugins and no changes to the DSH installation.
+- Known limit: the very first frame of a cold start can still briefly show the app default size (the shell shows the window at page `load`); removing that entirely would require changing the Electron shell.
 
 ## FAQ
 
@@ -99,7 +101,7 @@ No. It only writes its own `localStorage` key and registers one settings page; t
 A leftover key is ignored. Clear the app's site storage if you want it gone completely.
 
 **Does it remember the window position?**
-No, only the size.
+No, only the size. The window is centered on startup, but the position itself is not persisted.
 
 ## Development
 
