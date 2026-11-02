@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -30,15 +31,30 @@ jobs:
           node -e "
           const fs = require('fs');
           const { name, version } = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-          const tag = process.env.GITHUB_REF_NAME.replace(/^v/, '');
-          if (tag !== version) {
-            console.error('tag ' + tag + ' does not match ' + name + '@' + version);
-            process.exit(1);
+          const ref = process.env.GITHUB_REF || '';
+          if (ref.startsWith('refs/tags/')) {
+            const tag = ref.replace('refs/tags/v', '');
+            if (tag !== version) {
+              console.error('tag ' + tag + ' does not match ' + name + '@' + version);
+              process.exit(1);
+            }
           }
           console.log('publishing ' + name + '@' + version);
           "
 
+      - name: Check whether this version is already on npm
+        id: published
+        run: |
+          version=$(node -p "require('./package.json').version")
+          if npm view "dsh-window-size@$version" version >/dev/null 2>&1; then
+            echo "dsh-window-size@$version is already published, skipping the publish step"
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Publish to npm
+        if: steps.published.outputs.exists != 'true'
         run: npm publish --provenance --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
