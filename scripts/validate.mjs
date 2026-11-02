@@ -10,7 +10,7 @@
  * Set SKIP_PACK_CHECK=1 to skip the `npm pack --dry-run` step (offline runs).
  */
 import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -21,7 +21,14 @@ const failures = [];
 const check = (ok, message) => {
   if (!ok) failures.push(message);
 };
-const read = (path) => readFileSync(join(root, path), "utf8");
+const read = (path) => {
+  try {
+    return readFileSync(join(root, path), "utf8");
+  } catch (error) {
+    failures.push(`${path}: cannot be read (${error.message})`);
+    return "";
+  }
+};
 const readJson = (path) => {
   try {
     return JSON.parse(read(path));
@@ -103,7 +110,8 @@ for (const patchFile of patchFiles) {
 /* ------------------------------------------------------------------ locale */
 
 const localeDir = join(root, "locale");
-const localeFiles = readdirSync(localeDir).filter((name) => name.endsWith(".json"));
+const localeFiles = existsSync(localeDir) ? readdirSync(localeDir).filter((name) => name.endsWith(".json")) : [];
+check(existsSync(localeDir), "locale/ directory is missing");
 check(localeFiles.includes("en.json"), "locale/en.json is required (DSH reads it for plugin metadata)");
 for (const name of localeFiles) {
   const dictionary = readJson(join("locale", name));
