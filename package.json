@@ -1,12 +1,13 @@
 {
   "name": "dsh-window-size",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Set the startup window size of DeepSeek Harness Desktop, with 4:3 / 16:9 / 16:10 presets, custom presets, and a visual settings panel.",
   "type": "module",
   "main": "index.js",
   "exports": {
     ".": "./index.js",
     "./client": "./client.js",
+    "./cordis.patch.yml": "./cordis.patch.yml",
     "./locale/*.json": "./locale/*.json",
     "./icon": "./icon.svg",
     "./package.json": "./package.json"
@@ -17,11 +18,14 @@
     "cordis.patch.yml",
     "locale/*.json",
     "icon.svg",
-    "README.md"
+    "README.md",
+    "README.en.md",
+    "CHANGELOG.md"
   ],
   "keywords": [
     "dsh",
     "deepseek-harness",
+    "dsh-plugin",
     "plugin",
     "window-size",
     "electron",
@@ -36,6 +40,16 @@
   "homepage": "https://github.com/jue5hen/dsh-window-size#readme",
   "bugs": {
     "url": "https://github.com/jue5hen/dsh-window-size/issues"
+  },
+  "engines": {
+    "dsh": "^0.2.1-rc.5"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "validate": "node scripts/validate.mjs",
+    "prepublishOnly": "npm run validate"
   },
   "dsh": {
     "bundle": {

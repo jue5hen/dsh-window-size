@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.0.2 — 2026-11-02
+
+发布方式从 GitHub 源码迁移到 npm：`dsh-window-size` 现在按 registry 包名安装，插件管理器与插件市场直接取预构建产物，不再需要克隆仓库。
+
+- `package.json` 补齐发布元数据：`engines.dsh`（`^0.2.1-rc.5`，宿主在 pnpm 之前校验）、`publishConfig.access`、`exports["./cordis.patch.yml"]`；`files` 补上 `README.en.md` 与 `CHANGELOG.md`，`keywords` 补 `dsh-plugin`。
+- 新增 `scripts/validate.mjs`：校验清单、导出、locale 元数据、图标体积与 `npm pack` 的真实文件清单；`prepublishOnly` 会强制执行，打包内容漂移时发布直接失败。
+- 新增 `.github/workflows/publish.yml`：推送 `v*` 标签时先校验标签与 `package.json` 版本一致，再带 provenance 发布到 npm。
+- README 中英双语安装段改为 npm 优先，源码安装降级为开发小节；补 npm 徽章与发布流程说明。
+- 运行时行为与 1.0.1 相同。
+
 ## 1.0.1 — 2026-10-30
 
 - 启动尺寸改由 Host 注入的引导脚本在窗口显示前应用，消除“先默认尺寸再跳转”的闪烁。

@@ -4,6 +4,7 @@
 
 [English](README.en.md) · [更新日志](CHANGELOG.md)
 
+[![npm](https://img.shields.io/npm/v/dsh-window-size?logo=npm&color=CB3837)](https://www.npmjs.com/package/dsh-window-size)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![validate](https://github.com/jue5hen/dsh-window-size/actions/workflows/validate.yml/badge.svg?branch=main)](https://github.com/jue5hen/dsh-window-size/actions/workflows/validate.yml)
 ![DSH](https://img.shields.io/badge/DSH-0.2.1--rc.5-4B6EF5.svg)
@@ -23,7 +24,29 @@ DSH 桌面版每次启动固定为 **1280×820**，不会记住你调整过的�
 
 ## 安装
 
-前置条件：DSH 桌面版（Electron 壳），已在 **0.2.1-rc.5** 上验证。
+前置条件：DSH 桌面版（Electron 壳），运行时满足 `engines.dsh` 要求（`^0.2.1-rc.5`，已在 0.2.1-rc.5 上实测）。运行时版本不满足时，宿主会在 pnpm 之前就拒绝安装，并给出兼容性豁免入口。
+
+### 从 npm 安装（推荐）
+
+包发布在 [npm](https://www.npmjs.com/package/dsh-window-size)，安装直接拉取预构建产物，不克隆仓库、不执行构建脚本：
+
+1. 在 DSH 会话里安装（省略版本号即取最新发布版）：
+
+   ```text
+   plugin_manager install_bundle dsh-window-size@1.0.2
+   ```
+
+2. **完全退出并重启** DSH（包括托盘里的进程）。首次安装或升级后，必须重启才能加载新的 Client 模块。
+
+桌面版也可以在应用内 **设置 → 插件** 里搜索 `dsh-window-size` 安装；装了 dshmarket 等市场插件时，站内商店搜同一个名字即可。桌面档案由 Electron 壳管理，不需要命令行。
+
+Web 档案（`dsh web`）可以用 CLI：
+
+```bash
+dsh plugin add dsh-window-size            # 默认档案，可加 --profile <name>
+```
+
+### 从源码安装（开发）
 
 1. 克隆仓库到任意目录：
 
@@ -39,9 +62,9 @@ DSH 桌面版每次启动固定为 **1280×820**，不会记住你调整过的�
 
    Windows 路径示例：`file:D:/tools/dsh-window-size`。
 
-3. **完全退出并重启** DSH（包括托盘里的进程）。首次安装或升级后，必须重启才能加载新的 Client 模块。
+3. 同样需要**完全退出并重启**。
 
-安装会把插件作为 `file:` 依赖写进 `desktop` 档案的 `package.json`，并注册到 `dsh.profile.bundles`。插件本身不写任何文件、不联网。
+`file:` 安装把整个检出目录链接进档案，`files` 白名单不生效（`node_modules/`、截图等也会一并带进去）；npm 安装只落地包内文件。两种方式都会把插件写进 `desktop` 档案的 `package.json` 与 `dsh.profile.bundles`。插件本身不写任何文件、不联网。
 
 ## 使用
 
@@ -109,7 +132,7 @@ DSH 桌面版每次启动固定为 **1280×820**，不会记住你调整过的�
 dsh-window-size/
 ├─ package.json        bundle 清单（dsh.bundle.patch + dsh.client）
 ├─ cordis.patch.yml    插入一行 dsh-window-size（Host 半边）
-├─ index.js            Host 半边：空 apply()
+├─ index.js            Host 半边：推送启动引导脚本
 ├─ client.js           Client 半边：设置页 + 预设 + 启动应用尺寸
 ├─ locale/zh.json      面板标题/描述
 ├─ locale/en.json
@@ -117,24 +140,31 @@ dsh-window-size/
 ├─ assets/icon-180.png  商店图标（GitHub 托管的位图）
 ├─ docs/screenshot.png
 ├─ screenshots.json     商店截图清单
+├─ scripts/validate.mjs 发布前校验（清单 / 图标 / 实际打包内容）
+├─ .github/workflows/   validate.yml（CI 校验）· publish.yml（npm 发布）
 ├─ README.md / README.en.md
 ├─ CHANGELOG.md
 └─ LICENSE
 ```
 
-提交前可本地校验：
+提交前本地校验（语法、JSON、清单、图标、`npm pack` 实际清单）：
 
 ```bash
-node --check client.js
-node --check index.js
-node -e "for (const f of ['package.json','locale/zh.json','locale/en.json']) JSON.parse(require('fs').readFileSync(f,'utf8')); console.log('json ok')"
+npm run validate
 ```
 
-仓库自带 GitHub Actions（`.github/workflows/validate.yml`），在每次 push / PR 时跑同样的检查。
+`npm publish` 会通过 `prepublishOnly` 自动重跑一次，校验不过不会发出包。`.github/workflows/validate.yml` 在每次 push / PR 跑同样的检查；`.github/workflows/publish.yml` 在推送 `v*` 标签时先校验标签与 `package.json` 版本一致，再带 provenance 发布到 npm。
+
+发布新版本：把 `package.json` 与 `CHANGELOG.md` 的版本改成同一个号，提交后推标签：
+
+```bash
+git tag v1.0.2
+git push origin v1.0.2
+```
 
 ## 版本
 
-见 [CHANGELOG.md](CHANGELOG.md)。当前版本 **1.0.1**。
+见 [CHANGELOG.md](CHANGELOG.md)。当前版本 **1.0.2**。
 
 ## 许可证
 

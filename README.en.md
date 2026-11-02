@@ -4,6 +4,7 @@
 
 [简体中文](README.md) · [Changelog](CHANGELOG.md)
 
+[![npm](https://img.shields.io/npm/v/dsh-window-size?logo=npm&color=CB3837)](https://www.npmjs.com/package/dsh-window-size)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![validate](https://github.com/jue5hen/dsh-window-size/actions/workflows/validate.yml/badge.svg?branch=main)](https://github.com/jue5hen/dsh-window-size/actions/workflows/validate.yml)
 ![DSH](https://img.shields.io/badge/DSH-0.2.1--rc.5-4B6EF5.svg)
@@ -23,7 +24,29 @@ DSH Desktop always starts at **1280×820** and does not remember a resized windo
 
 ## Install
 
-Requires DSH Desktop (Electron shell); tested on **0.2.1-rc.5**.
+Requires DSH Desktop (Electron shell) on a runtime that satisfies `engines.dsh` (`^0.2.1-rc.5`, verified on 0.2.1-rc.5). When the runtime is too old the host rejects the install before pnpm runs and points at the compatibility override.
+
+### From npm (recommended)
+
+The plugin is published on [npm](https://www.npmjs.com/package/dsh-window-size), so the install pulls a prebuilt package: no repository clone, no build scripts.
+
+1. Install it from a DSH session (omit the version to take the latest release):
+
+   ```text
+   plugin_manager install_bundle dsh-window-size@1.0.2
+   ```
+
+2. **Quit and restart** DSH completely (including the tray process). A restart is required after the first install or any upgrade so the new Client module is loaded.
+
+In the desktop app you can also install it from **Settings → Plugins** by searching for `dsh-window-size`; with a market plugin such as dshmarket installed, search the same name in its store. The desktop profile is owned by the Electron shell, so no command line is involved.
+
+Web profiles (`dsh web`) can use the CLI:
+
+```bash
+dsh plugin add dsh-window-size            # default profile; add --profile <name> for another
+```
+
+### From source (development)
 
 1. Clone the repository:
 
@@ -39,9 +62,9 @@ Requires DSH Desktop (Electron shell); tested on **0.2.1-rc.5**.
 
    Windows example: `file:D:/tools/dsh-window-size`.
 
-3. **Quit and restart** DSH completely (including the tray process). A restart is required after the first install or any upgrade so the new Client module is loaded.
+3. **Quit and restart** DSH completely, as above.
 
-The install records the plugin as a `file:` dependency in the `desktop` profile and adds it to `dsh.profile.bundles`. The plugin writes no files and makes no network requests.
+A `file:` install links the whole checkout into the profile and ignores the `files` allowlist (`node_modules/`, screenshots and everything else come along); the npm install only lands package files. Both record the plugin in the `desktop` profile's `package.json` and in `dsh.profile.bundles`. The plugin writes no files and makes no network requests.
 
 ## Usage
 
@@ -109,7 +132,7 @@ No, only the size. The window is centered on startup, but the position itself is
 dsh-window-size/
 ├─ package.json       bundle manifest (dsh.bundle.patch + dsh.client)
 ├─ cordis.patch.yml   inserts one dsh-window-size row (Host half)
-├─ index.js           Host half: empty apply()
+├─ index.js           Host half: pushes the startup boot script
 ├─ client.js          Client half: settings page, presets, startup resize
 ├─ locale/zh.json     panel title/description
 ├─ locale/en.json
@@ -117,24 +140,31 @@ dsh-window-size/
 ├─ assets/icon-180.png   storefront icon (GitHub-hosted raster)
 ├─ docs/screenshot.png
 ├─ screenshots.json      storefront screenshot manifest
+├─ scripts/validate.mjs  pre-publish checks (manifest, icon, packed files)
+├─ .github/workflows/    validate.yml (CI checks) · publish.yml (npm release)
 ├─ README.md / README.en.md
 ├─ CHANGELOG.md
 └─ LICENSE
 ```
 
-Local checks before committing:
+Local checks before publishing (syntax, JSON, manifest, icon, and the real `npm pack` file list):
 
 ```bash
-node --check client.js
-node --check index.js
-node -e "for (const f of ['package.json','locale/zh.json','locale/en.json']) JSON.parse(require('fs').readFileSync(f,'utf8')); console.log('json ok')"
+npm run validate
 ```
 
-GitHub Actions (`.github/workflows/validate.yml`) runs the same checks on every push and pull request.
+`npm publish` re-runs it through `prepublishOnly`, so a drifting tarball never reaches the registry. `.github/workflows/validate.yml` runs the same checks on every push and pull request; `.github/workflows/publish.yml` verifies that a `v*` tag matches `package.json` and publishes with provenance.
+
+To release: set `package.json` and `CHANGELOG.md` to the same version, commit, then push the tag:
+
+```bash
+git tag v1.0.2
+git push origin v1.0.2
+```
 
 ## Version
 
-See [CHANGELOG.md](CHANGELOG.md). Current version: **1.0.1**.
+See [CHANGELOG.md](CHANGELOG.md). Current version: **1.0.2**.
 
 ## License
 
