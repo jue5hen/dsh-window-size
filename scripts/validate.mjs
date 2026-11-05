@@ -138,17 +138,14 @@ check(changelog.includes(`## ${pkg.version} `) || changelog.includes(`## ${pkg.v
 
 /* --------------------------------------------------------- packed tarball */
 
-// Newer npm versions can print notices after the JSON array, so find the first
-// complete array instead of assuming the whole output is JSON.
+// Newer npm versions can print notices after the JSON payload, and some
+// versions return a single object instead of an array. Find the first complete
+// JSON value that looks like pack output instead of assuming the whole output.
 function parsePackOutput(output) {
   const text = output.trim();
-  try {
-    const parsed = JSON.parse(text);
-    if (Array.isArray(parsed)) return parsed;
-  } catch {}
-
-  for (let start = text.indexOf("["); start !== -1; start = text.indexOf("[", start + 1)) {
-    let depth = 0;
+  for (let start = 0; start < text.length; start += 1) {
+    if (text[start] !== "[" && text[start] !== "{") continue;
+    const stack = [];
     let quoted = false;
     let escaped = false;
     for (let index = start; index < text.length; index += 1) {
@@ -158,16 +155,17 @@ function parsePackOutput(output) {
         else if (character === "\\") escaped = true;
         else if (character === '"') quoted = false;
       } else if (character === '"') quoted = true;
-      else if (character === "[") depth += 1;
-      else if (character === "]") {
-        depth -= 1;
-        if (depth === 0) {
-          try {
-            const parsed = JSON.parse(text.slice(start, index + 1));
-            if (Array.isArray(parsed)) return parsed;
-          } catch {}
-          break;
-        }
+      else if (character === "[" || character === "{") stack.push(character);
+      else if (character === "]" || character === "}") {
+        const open = stack.pop();
+        if ((character === "]" && open !== "[") || (character === "}" && open !== "{")) break;
+        if (stack.length > 0) continue;
+        try {
+          const parsed = JSON.parse(text.slice(start, index + 1));
+          if (Array.isArray(parsed) && parsed.length > 0 && parsed[0]?.files) return parsed;
+          if (parsed && !Array.isArray(parsed) && Array.isArray(parsed.files)) return [parsed];
+        } catch {}
+        break;
       }
     }
   }
@@ -184,8 +182,9 @@ if (process.env.SKIP_PACK_CHECK !== "1") {
       ? execFileSync(process.execPath, [npmCli, ...npmArgs], { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], maxBuffer: 16 * 1024 * 1024 })
       : execFileSync(process.platform === "win32" ? "npm.cmd" : "npm", npmArgs, { cwd: root, shell: process.platform === "win32", encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], maxBuffer: 16 * 1024 * 1024 });
     const pack = parsePackOutput(output);
-    if (!Array.isArray(pack)) throw new Error("npm pack returned unexpected output");
+    if (!Array.isArray(pack)) throw new Error(`npm pack returned unexpected output: ${output.slice(0, 240)}`);
     const packed = pack[0]?.files?.map((entry) => entry.path) ?? [];
+    if (packed.length === 0) throw new Error(`npm pack returned no files: ${output.slice(0, 240)}`);
     const requiredPacked = ["package.json", "index.js", "client.js", "cordis.patch.yml", "icon.svg", "locale/en.json", "locale/zh.json", "README.md"];
     for (const entry of requiredPacked) check(packed.includes(entry), `npm pack: ${entry} is missing from the published tarball`);
     for (const entry of ["MEMORY.md", "screenshots.json", "docs/screenshot.png", "assets/icon-180.png"]) {
