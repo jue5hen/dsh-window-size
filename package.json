@@ -1,7 +1,7 @@
 {
   "name": "dsh-window-size",
-  "version": "1.0.2",
-  "description": "Set the startup window size of DeepSeek Harness Desktop, with 4:3 / 16:9 / 16:10 presets, custom presets, and a visual settings panel.",
+  "version": "1.1.0",
+  "description": "Set the startup window size and position of DeepSeek Harness Desktop, with fixed/memory modes, 4:3 / 16:9 / 16:10 presets, custom presets, and a visual settings panel.",
   "type": "module",
   "main": "index.js",
   "exports": {

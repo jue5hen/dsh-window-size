@@ -1,6 +1,6 @@
 # dsh-window-size
 
-**Start DeepSeek Harness Desktop at the window size you want.**
+**Start DeepSeek Harness Desktop at the size and position you want.**
 
 [简体中文](README.md) · [Changelog](CHANGELOG.md)
 
@@ -11,15 +11,17 @@
 
 ![Window size settings page](docs/screenshot.png)
 
-DSH Desktop always starts at **1280×820** and does not remember a resized window: `createWindow` hardcodes the size and there is no bounds save/restore logic. This plugin fills that gap — save a startup size in the settings panel and the window is resized during page startup, so the next launch opens at your size.
+DSH Desktop always starts at **1280×820** and does not remember a resized window or where you left it: `createWindow` hardcodes the size and there is no bounds save/restore logic. This plugin fills that gap — choose a startup mode, save a size and position in the settings panel, and the window is adjusted during page startup so the next launch opens the way you want.
 
 ## Features
 
-- **Startup size**: applies immediately after saving and again on every launch.
+- **Fixed size mode**: every launch uses the saved size; saving applies it immediately.
+- **Memory mode**: the next launch reuses the content size from the last close (or hide-to-tray), and manual resizes are recorded automatically.
+- **Remember position on close**: when on, the next launch returns to the last position; when off, the window starts centered. A position outside the current screen (resolution change, unplugged monitor) falls back to centered.
 - **Ratio presets**: 4:3 / 16:9 / 16:10, one small and one large preset each (six built-ins); a preset is disabled when it exceeds the current screen's available area.
 - **Custom presets**: save any valid size, up to 12, removable, persisted across restarts.
 - **Live current size**: shows the current window content size and updates as you resize it.
-- **Save & apply / Reset**: resize the current window; reset only clears the startup size and keeps custom presets.
+- **Save & apply / Reset**: resize the current window; reset returns to Fixed size mode, 1280×820, centered, no position memory, keeping custom presets.
 - **Desktop-only**: in the browser build the panel is read-only and explains that the feature requires the desktop app.
 
 ## Install
@@ -33,7 +35,7 @@ The plugin is published on [npm](https://www.npmjs.com/package/dsh-window-size),
 1. Install it from a DSH session (omit the version to take the latest release):
 
    ```text
-   plugin_manager install_bundle dsh-window-size@1.0.2
+   plugin_manager install_bundle dsh-window-size@1.1.0
    ```
 
 2. **Quit and restart** DSH completely (including the tray process). A restart is required after the first install or any upgrade so the new Client module is loaded.
@@ -69,32 +71,40 @@ A `file:` install links the whole checkout into the profile and ignores the `fil
 ## Usage
 
 1. After restarting, open **account menu (bottom-left) → Settings → 窗口大小 / Window Size**.
-2. Pick a preset or type a width and height, then click **保存并应用 / Save & apply**.
-3. Click **保存为预设 / Save as preset** to keep a size for later; click **×** to remove a custom preset.
-4. **恢复默认 / Reset** clears the startup size and returns to the app default **1280×820**, keeping custom presets.
+2. Under **Startup mode**, choose **Fixed size** or **Memory**:
+   - Fixed size: pick a preset or type a width and height, then click **保存并应用 / Save & apply**;
+   - Memory: the next launch reuses the size from the last close; no size saving needed.
+3. Turn on **记住关闭时窗口位置 / Remember position on close** to return to the last position; turn it off to start centered every time.
+4. Click **保存为预设 / Save as preset** to keep a size for later; click **×** to remove a custom preset.
+5. **恢复默认 / Reset** returns to Fixed size mode, **1280×820**, centered, no position memory, keeping custom presets.
 
 ## How it works
 
-A pure Client plugin with minimal impact:
-
-- The Host half `index.js` registers nothing and writes no files: it subscribes to `webserver/index-inject` and pushes one inline boot script.
-- That script runs during page boot, before the window is shown, reads `localStorage`, validates the size, calls `window.resizeTo` and centers the window, so the app no longer starts at the default size and jumps. The Client module only owns the settings page, presets and saving.
+Host injector + Client settings page, with minimal impact:
+- The Host half `index.js` registers no services and writes no files: it subscribes to `webserver/index-inject` and pushes one inline boot script.
+- That script runs during page boot, before the window is shown, reads `localStorage`, validates the size and position, and applies them, so the app no longer starts at the default size and jumps. The Client module only owns the settings page, presets and saving.
 - `window.resizeTo` sets the **content area** (`innerWidth` / `innerHeight`), matching the app's own `BrowserWindow({ width: 1280, height: 820 })` convention. The outer frame is slightly larger (about 16×8 px on Windows).
-- While the window is hidden, `resizeTo` measures the frame differently (ask for `width-frameX × height-frameY`) and `moveTo` is ignored; after the window appears the plugin makes at most 5 centering attempts 350 ms apart, stopping within ±12 px, because repeated `moveTo` calls can trigger Windows maximize.
-- The size and presets live only in the local `localStorage['dsh-window-size:v2']`, inside the app data directory. Nothing is uploaded and other plugins are not touched.
+- Position is applied with `resizeTo` → `moveTo` → `resizeTo`: Electron 44 clamps y against the current content height and temporarily grows the content area by one frame in `moveTo`. Resizing to the target first makes room, then the window moves (x offset by 8 px to compensate for the frame), and a final resize settles the exact size and coordinates.
+- Positions are stored in content coordinates: `x = screenX + frame/2`, `y = screenY`. Centering uses the content-area center and clamps to the current screen's available area.
+- Runtime recording: debounce size saves by 600 ms after a resize; save the position on hide, blur and page unload; poll the position once per second while visible (writing only when position memory is on); verify the startup position/size at most twice, stopping as soon as the user interacts.
+- Size, mode and position live only in the local `localStorage['dsh-window-size:v2']`, inside the app data directory. Nothing is uploaded and other plugins are not touched.
 - Storage format:
 
   ```json
   {
+    "mode": "fixed",
     "width": 1280,
     "height": 960,
+    "last": { "width": 1400, "height": 900 },
+    "rememberPosition": true,
+    "position": { "x": 300, "y": 180 },
     "presets": [
       { "width": 1100, "height": 700 }
     ]
   }
   ```
 
-  `width` / `height` may be omitted (use the app default). The legacy `dsh-window-size:v1` shape (`{width,height}`) is still read at startup and migrated to v2 on the first save.
+  `mode` is `"fixed"` (default) or `"memory"`; `width` / `height` are the fixed size, `last` is the last memory-mode size, and `position` is the content-area top-left corner. `width` / `height` may be omitted (use the app default). The legacy `dsh-window-size:v1` shape (`{width,height}`) is still read at startup and migrated to v2 on the first save. An older plugin reading a new record ignores the unknown fields and keeps working with the fixed size.
 - Frame-measurement fallback: when the window is hidden or minimized, Chromium can report a wrong (even negative) frame delta. The plugin only accepts a sane range and reuses the last valid measurement (falling back to 16×8), so the maximum size is not miscalculated.
 - Bounds: minimum **520×600**; maximum is the screen's available area minus the window frame, capped at **10000**.
 
@@ -104,6 +114,7 @@ A pure Client plugin with minimal impact:
 - **macOS / Linux desktop**: same Electron and DOM APIs; expected to work but not yet tested.
 - **Web build**: the plugin loads, but the panel is read-only and explains that the desktop app is required.
 - No dependency on other plugins and no changes to the DSH installation.
+- Multiple displays: positions and size limits are evaluated against the screen the window is on (normally the primary at boot); a position saved on a secondary display may fall back to centered.
 - Known limit: the very first frame of a cold start can still briefly show the app default size (the shell shows the window at page `load`); removing that entirely would require changing the Electron shell.
 
 ## FAQ
@@ -124,7 +135,7 @@ No. It only writes its own `localStorage` key and registers one settings page; t
 A leftover key is ignored. Clear the app's site storage if you want it gone completely.
 
 **Does it remember the window position?**
-No, only the size. The window is centered on startup, but the position itself is not persisted.
+Not by default; it saves only the size and centers the window. Turn on **Remember position on close** to persist content-area coordinates and return to the last position on the next launch; turning the switch off clears the saved position immediately.
 
 ## Development
 
@@ -158,13 +169,13 @@ npm run validate
 To release: set `package.json` and `CHANGELOG.md` to the same version, commit, then push the tag:
 
 ```bash
-git tag v1.0.2
-git push origin v1.0.2
+git tag v1.1.0
+git push origin v1.1.0
 ```
 
 ## Version
 
-See [CHANGELOG.md](CHANGELOG.md). Current version: **1.0.2**.
+See [CHANGELOG.md](CHANGELOG.md). Current version: **1.1.0**.
 
 ## License
 

@@ -1,17 +1,15 @@
 /**
  * dsh-window-size — Client half.
  *
- * The renderer may resize its own BrowserWindow (verified on Electron 44.7 /
- * Chrome 152, including while the window is still hidden), so the whole
- * feature lives here:
+ * The Host-injected boot script (index.js) applies the startup size and
+ * position before first paint and keeps the last size/position in
+ * localStorage while the app runs; this Client half adds the settings page.
  *
- *  - at boot, read the saved size from localStorage and resize before the
- *    window is shown;
- *  - contribute a "Window Size" page to Settings that edits the same record
- *    and applies it immediately.
+ *  - a settings page edits the startup size, startup mode and position policy;
+ *  - the same record is what the boot script reads on the next start.
  *
- * Sizes and user presets are one record under `dsh-window-size:v2`; the old
- * v1 shape `{width,height}` is still read and migrated on the next write.
+ * One record under `dsh-window-size:v2`; the old v1 shape `{width,height}` is
+ * still read and migrated on the next write.
  *
  * No Host service, no IPC, no files. Removing the bundle removes the page and
  * stops the startup resize; the app falls back to its built-in 1280×820.
@@ -60,12 +58,29 @@ window.__ModuleLoader__.load({
       zh: {
         title: "窗口大小",
         description:
-          "设置 DeepSeek Harness 桌面版启动时的默认窗口尺寸。保存后立即应用到当前窗口，下次启动会在窗口显示前套用。",
+          "设置桌面版启动时的窗口大小与位置。固定大小每次都使用同一尺寸；记忆模式沿用上次关闭时的大小。",
         current: "当前窗口",
         currentNote: "内容区尺寸，随手动调整实时更新",
-        startup: "启动尺寸",
-        notSet: "未设置，使用应用默认尺寸",
-        storedValue: "下次启动自动使用",
+        startup: "下次启动",
+        startupDefault: "应用默认 {width} × {height}",
+        startupNoteFixed: "每次启动使用固定尺寸",
+        startupNoteMemory: "每次启动沿用上次关闭时的大小",
+        startupNoteDefault: "尚未设置启动尺寸",
+        position: "启动位置",
+        positionCenter: "屏幕正中",
+        positionLast: "上次位置",
+        positionPending: "尚未记录",
+        positionNoteCenter: "启动时窗口在屏幕正中",
+        positionNoteRemember: "启动时回到上次位置",
+        modeLabel: "启动方式",
+        modeFixed: "固定大小",
+        modeMemory: "记忆模式",
+        modeFixedHint: "每次启动都使用下方设置的固定尺寸。",
+        modeMemoryHint: "启动时使用上次关闭时的窗口大小；手动缩放会自动记忆。",
+        rememberPosition: "记住关闭时窗口位置",
+        rememberPositionHint: "开启后下次启动回到上次位置；关闭时窗口在屏幕正中启动。",
+        on: "开",
+        off: "关",
         resolution: "分辨率",
         width: "宽度",
         height: "高度",
@@ -79,29 +94,54 @@ window.__ModuleLoader__.load({
         save: "保存并应用",
         savePreset: "保存为预设",
         reset: "恢复默认",
-        saved: "已保存并应用：{width} × {height}，下次启动自动使用。",
+        saved: "已保存并应用：{width} × {height}，下次启动使用固定大小。",
+        modeFixedDone: "已切换为固定大小模式。",
+        modeMemoryDone: "已切换为记忆模式，下次启动沿用上次关闭时的大小。",
+        positionOn: "已开启位置记忆，下次启动回到上次位置。",
+        positionOff: "已关闭位置记忆，下次启动窗口居中。",
         presetSaved: "已保存为预设：{width} × {height}。",
         presetExists: "该尺寸已在预设中。",
         presetLimit: "自定义预设最多 {limit} 个，请先删除一个。",
         presetRemoved: "已删除预设：{width} × {height}。",
         removePreset: "删除预设",
         presetTooLarge: "超出当前屏幕可用区域",
-        resetDone: "已清除自定义尺寸，窗口恢复为应用默认 1280 × 820。",
+        resetDone: "已恢复默认：启动尺寸 1280 × 820、窗口居中、不记忆位置；自定义预设保留。",
         invalid: "请输入 {minW}–{maxW} 之间的宽度、{minH}–{maxH} 之间的高度（整数）。",
         storageFailed: "无法写入本地存储，设置没有保存。",
         desktopOnly:
-          "当前是网页版，浏览器不允许页面调整窗口大小。该设置只在 DSH 桌面版生效，仍可在此保存，但不会改变浏览器窗口。",
-        disabled: "网页版不可用",
+          "当前是网页版，浏览器不允许页面调整窗口大小。该设置只在 DSH 桌面版生效。",
+        memoryTitle: "记忆模式",
+        memoryNote:
+          "下次启动使用上次关闭时的窗口大小。当前窗口为 {width} × {height}，关闭或隐藏后自动记录。",
+        memoryLast: "当前记忆的大小",
+        memoryLastNote: "窗口缩放后自动更新",
       },
       en: {
         title: "Window Size",
         description:
-          "Set the default window size for the DeepSeek Harness desktop app. Saving applies it to this window immediately; the next launch applies it before the window appears.",
+          "Set the desktop app's startup window size and position. Fixed mode always uses the same size; Memory mode reuses the size from the last close.",
         current: "Current window",
         currentNote: "Content area; updates when you resize it",
-        startup: "Startup size",
-        notSet: "Not set — the app default is used",
-        storedValue: "Used on the next start",
+        startup: "Next start",
+        startupDefault: "App default {width} × {height}",
+        startupNoteFixed: "Uses the fixed size on every start",
+        startupNoteMemory: "Uses the size from the last close",
+        startupNoteDefault: "No startup size is set",
+        position: "Startup position",
+        positionCenter: "Screen center",
+        positionLast: "Last position",
+        positionPending: "Not recorded yet",
+        positionNoteCenter: "Starts in the center of the screen",
+        positionNoteRemember: "Returns to the last position",
+        modeLabel: "Startup mode",
+        modeFixed: "Fixed size",
+        modeMemory: "Memory",
+        modeFixedHint: "Use the fixed size set below on every start.",
+        modeMemoryHint: "Start at the size from the last close; manual resizes are remembered.",
+        rememberPosition: "Remember position on close",
+        rememberPositionHint: "When on, the next start returns to the last position; otherwise it starts centered.",
+        on: "On",
+        off: "Off",
         resolution: "Resolution",
         width: "Width",
         height: "Height",
@@ -115,19 +155,27 @@ window.__ModuleLoader__.load({
         save: "Save and apply",
         savePreset: "Save as preset",
         reset: "Restore default",
-        saved: "Saved and applied: {width} × {height}. The next launch will use it.",
+        saved: "Saved and applied: {width} × {height}. The next start will use the fixed size.",
+        modeFixedDone: "Switched to Fixed size mode.",
+        modeMemoryDone: "Switched to Memory mode. The next start will reuse the last size.",
+        positionOn: "Position memory is on. The next start will return to the last position.",
+        positionOff: "Position memory is off. The next start will be centered.",
         presetSaved: "Saved as a preset: {width} × {height}.",
         presetExists: "That size is already in the presets.",
         presetLimit: "Up to {limit} custom presets; remove one first.",
         presetRemoved: "Removed preset: {width} × {height}.",
         removePreset: "Remove preset",
         presetTooLarge: "Larger than this screen's available area",
-        resetDone: "Custom size cleared. The window is back to the app default 1280 × 820.",
+        resetDone: "Restored the default: 1280 × 820, centered, no position memory. Custom presets are kept.",
         invalid: "Enter a width between {minW}–{maxW} and a height between {minH}–{maxH} (integers).",
-        storageFailed: "Local storage is unavailable, so the size was not saved.",
+        storageFailed: "Local storage is unavailable, so the setting was not saved.",
         desktopOnly:
-          "This is the web client; browsers do not let a page resize its window. The setting only affects the DSH desktop app. You can still save it here, but the browser window will not change.",
-        disabled: "Unavailable in the web client",
+          "This is the web client; browsers do not let a page resize its window. The setting only affects the DSH desktop app.",
+        memoryTitle: "Memory mode",
+        memoryNote:
+          "The next start will use the size from the last close. The current window is {width} × {height}; it is recorded when you close or hide the app.",
+        memoryLast: "Currently remembered size",
+        memoryLastNote: "Updates automatically when you resize",
       },
     };
 
@@ -148,29 +196,33 @@ window.__ModuleLoader__.load({
       try {
         const dx = Math.round(window.outerWidth - window.innerWidth);
         const dy = Math.round(window.outerHeight - window.innerHeight);
-        if (dx > 0 && dx <= 64 && dy > 0 && dy <= 96) FRAME = { x: dx, y: dy };
+        if (dx >= 0 && dx <= 64 && dy >= 0 && dy <= 96) FRAME = { x: dx, y: dy };
       } catch (error) {
         /* keep the last known frame */
       }
       return FRAME;
     }
 
-    function screenLimit() {
+    function screenBox() {
       try {
-        const frame = measureFrame();
-        const availWidth = Math.round(window.screen && window.screen.availWidth);
-        const availHeight = Math.round(window.screen && window.screen.availHeight);
-        const frameX = frame.x;
-        const frameY = frame.y;
-        const width = Number.isFinite(availWidth) && availWidth > 0 ? availWidth : UPPER_BOUND;
-        const height = Number.isFinite(availHeight) && availHeight > 0 ? availHeight : UPPER_BOUND;
         return {
-          width: Math.max(MIN_WIDTH, Math.min(width - frameX, UPPER_BOUND)),
-          height: Math.max(MIN_HEIGHT, Math.min(height - frameY, UPPER_BOUND)),
+          left: Math.round(window.screen.availLeft) || 0,
+          top: Math.round(window.screen.availTop) || 0,
+          width: Math.round(window.screen.availWidth) || UPPER_BOUND,
+          height: Math.round(window.screen.availHeight) || UPPER_BOUND,
         };
       } catch (error) {
-        return { width: UPPER_BOUND, height: UPPER_BOUND };
+        return { left: 0, top: 0, width: UPPER_BOUND, height: UPPER_BOUND };
       }
+    }
+
+    function screenLimit() {
+      const box = screenBox();
+      const frame = measureFrame();
+      return {
+        width: Math.max(MIN_WIDTH, Math.min(box.width - frame.x, UPPER_BOUND)),
+        height: Math.max(MIN_HEIGHT, Math.min(box.height - frame.y, UPPER_BOUND)),
+      };
     }
 
     function currentWindowSize() {
@@ -218,49 +270,84 @@ window.__ModuleLoader__.load({
       return presets;
     }
 
+    function normalizePosition(value) {
+      if (!value || typeof value !== "object") return null;
+      const x = Number(value.x);
+      const y = Number(value.y);
+      if (!Number.isInteger(x) || !Number.isInteger(y)) return null;
+      if (Math.abs(x) > 100000 || Math.abs(y) > 100000) return null;
+      return { x, y };
+    }
+
     function isBuiltinSize(size) {
       return PRESET_GROUPS.some((group) =>
         group.items.some((item) => item.width === size.width && item.height === size.height)
       );
     }
 
-    function readStored() {
-      const result = { size: null, presets: [] };
+    function readRawRecord() {
+      let value = {};
+      let hasRecord = false;
       try {
         const raw = window.localStorage.getItem(STORAGE_KEY);
         if (raw !== null) {
-          const value = JSON.parse(raw);
-          if (value && typeof value === "object") {
-            result.size = normalizeSize(value);
-            result.presets = normalizePresets(value.presets);
+          const parsed = JSON.parse(raw);
+          if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+            value = parsed;
+            hasRecord = true;
           }
-          return result;
         }
-        const legacy = window.localStorage.getItem(LEGACY_STORAGE_KEY);
-        if (legacy) {
-          result.size = normalizeSize(JSON.parse(legacy));
+        if (!hasRecord) {
+          const legacy = window.localStorage.getItem(LEGACY_STORAGE_KEY);
+          if (legacy) {
+            const old = normalizeSize(JSON.parse(legacy));
+            if (old) {
+              value.width = old.width;
+              value.height = old.height;
+            }
+          }
         }
       } catch (error) {
         /* malformed records are treated as empty */
       }
-      return result;
+      return value;
     }
 
-    function writeStored(size, presets) {
+    function readRecord() {
+      const value = readRawRecord();
+      const fixed = normalizeSize(value);
+      const last = normalizeSize(value.last);
+      const mode = value.mode === "memory" ? "memory" : "fixed";
+      return {
+        mode,
+        fixed,
+        last,
+        size: mode === "memory" ? last || fixed : fixed,
+        position: normalizePosition(value.position),
+        rememberPosition: value.rememberPosition === true,
+        presets: normalizePresets(value.presets),
+      };
+    }
+
+    function isEmptyRecord(value) {
+      return (
+        value.mode !== "memory" &&
+        !normalizeSize(value) &&
+        !normalizeSize(value.last) &&
+        !normalizePosition(value.position) &&
+        value.rememberPosition !== true &&
+        normalizePresets(value.presets).length === 0
+      );
+    }
+
+    function writeRawRecord(value) {
       try {
-        if (!size && presets.length === 0) {
+        if (isEmptyRecord(value)) {
           window.localStorage.removeItem(STORAGE_KEY);
           window.localStorage.removeItem(LEGACY_STORAGE_KEY);
           return true;
         }
-        const record = {
-          presets: presets.map((item) => ({ width: item.width, height: item.height })),
-        };
-        if (size) {
-          record.width = size.width;
-          record.height = size.height;
-        }
-        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(record));
+        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(value));
         window.localStorage.removeItem(LEGACY_STORAGE_KEY);
         return true;
       } catch (error) {
@@ -268,24 +355,69 @@ window.__ModuleLoader__.load({
       }
     }
 
-    function resizeToSize(size) {
+    function patchRecord(patch) {
+      const value = readRawRecord();
+      for (const key of Object.keys(patch)) {
+        if (patch[key] === null || patch[key] === undefined) delete value[key];
+        else value[key] = patch[key];
+      }
+      const ok = writeRawRecord(value);
+      return { ok, record: readRecord() };
+    }
+
+    function contentPoint() {
       try {
-        const frameX = Math.max(0, window.outerWidth - window.innerWidth);
-        const frameY = Math.max(0, window.outerHeight - window.innerHeight);
-        window.resizeTo(size.width, size.height);
-        const left = (window.screen.availLeft || 0) + (window.screen.availWidth - (size.width + frameX)) / 2;
-        const top = (window.screen.availTop || 0) + (window.screen.availHeight - (size.height + frameY)) / 2;
-        window.moveTo(Math.max(0, Math.round(left)), Math.max(0, Math.round(top)));
+        const frame = measureFrame();
+        return {
+          x: Math.round(window.screenX + Math.max(0, Math.round(frame.x / 2))),
+          y: Math.round(window.screenY),
+        };
       } catch (error) {
-        /* The web client denies this; the desktop app allows it. */
+        return null;
       }
     }
 
-    function applyStoredSize() {
-      if (!isDesktop()) return;
-      const stored = readStored();
-      if (!stored.size) return;
-      resizeToSize(clampSize(stored.size));
+    function targetPoint(size, position) {
+      const frame = measureFrame();
+      const box = screenBox();
+      const leftInset = Math.max(0, Math.round(frame.x / 2));
+      const maxX = Math.max(box.left, box.left + box.width - size.width - leftInset);
+      const maxY = Math.max(box.top, box.top + box.height - size.height - frame.y);
+      if (position) {
+        return {
+          x: Math.min(Math.max(position.x, box.left), maxX),
+          y: Math.min(Math.max(position.y, box.top), maxY),
+        };
+      }
+      return {
+        x: Math.min(
+          Math.max(box.left + Math.round((box.width - size.width) / 2), box.left),
+          maxX
+        ),
+        y: Math.min(
+          Math.max(box.top + Math.round((box.height - size.height) / 2), box.top),
+          maxY
+        ),
+      };
+    }
+
+    function applyWindow(size, position) {
+      try {
+        const frame = measureFrame();
+        const leftInset = Math.max(0, Math.round(frame.x / 2));
+        const point = targetPoint(size, position);
+        /* Resize first: Windows clamps moveTo() against the window's current
+           height, so moving a large window before shrinking it can leave it
+           off-center. moveTo() then grows the frameless window by one frame
+           and the final resizeTo() restores the target size and shifts the
+           content origin left by half a frame; pre-adding leftInset makes the
+           final x exact. */
+        window.resizeTo(size.width, size.height);
+        window.moveTo(point.x + leftInset, point.y);
+        window.resizeTo(size.width, size.height);
+      } catch (error) {
+        /* The web client denies this; the desktop app allows it. */
+      }
     }
 
     const CSS = `
@@ -327,6 +459,17 @@ window.__ModuleLoader__.load({
 .dws-chip-remove{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;padding:0;border:0;border-radius:50%;background:transparent;color:var(--dsw-alias-label-tertiary);font-size:13px;line-height:1;cursor:pointer}
 .dws-chip-remove:hover:not(:disabled){background:var(--dsw-alias-bg-mask-1);color:var(--dsw-alias-label-primary)}
 .dws-chip-remove:disabled{opacity:.5;cursor:not-allowed}
+.dws-segment{box-sizing:border-box;display:flex;gap:2px;width:100%;padding:2px;border:1px solid var(--dsw-alias-border-l2);border-radius:9px;background:var(--dsw-alias-bg-mask-1)}
+.dws-segment-item{flex:1;height:30px;padding:0 10px;border:0;border-radius:7px;background:transparent;color:var(--dsw-alias-label-secondary);font-size:12px;font-weight:500;line-height:1;cursor:pointer}
+.dws-segment-item:hover:not(:disabled){color:var(--dsw-alias-label-primary)}
+.dws-segment-item[data-active="true"]{background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-primary);font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.dws-segment-item:disabled{opacity:.5;cursor:not-allowed}
+.dws-switch{display:inline-flex;align-items:center;gap:8px;height:34px;padding:0;border:0;background:transparent;color:var(--dsw-alias-label-secondary);font-size:12px;line-height:1;cursor:pointer}
+.dws-switch-track{position:relative;display:inline-block;width:36px;height:20px;border:1px solid var(--dsw-alias-border-l2);border-radius:999px;background:var(--dsw-alias-bg-mask-1);transition:background .15s ease,border-color .15s ease}
+.dws-switch-thumb{position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:var(--dsw-alias-label-tertiary);transition:transform .15s ease,background .15s ease}
+.dws-switch[data-on="true"] .dws-switch-track{border-color:var(--dsw-alias-label-primary);background:var(--dsw-alias-label-primary)}
+.dws-switch[data-on="true"] .dws-switch-thumb{transform:translateX(16px);background:var(--dsw-alias-bg-layer-2)}
+.dws-switch:disabled{opacity:.5;cursor:not-allowed}
 .dws-hint{font-size:12px;line-height:1.6;color:var(--dsw-alias-label-tertiary)}
 .dws-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .dws-button{box-sizing:border-box;height:34px;padding:0 14px;border:1px solid var(--dsw-alias-border-l2);border-radius:8px;background:transparent;color:var(--dsw-alias-label-primary);font-size:13px;line-height:1;cursor:pointer}
@@ -359,13 +502,22 @@ window.__ModuleLoader__.load({
       const desktop = isDesktop();
       const current = useCurrentSize();
       const limit = screenLimit();
-      const [record, setRecord] = useState(readStored);
-      const stored = record.size;
-      const presets = record.presets;
-      const initial = stored || current;
-      const [width, setWidth] = useState(String(initial.width));
-      const [height, setHeight] = useState(String(initial.height));
+      const [record, setRecord] = useState(readRecord);
+      const [width, setWidth] = useState(() => {
+        const initial = record.fixed || record.last || current;
+        return String(initial.width);
+      });
+      const [height, setHeight] = useState(() => {
+        const initial = record.fixed || record.last || current;
+        return String(initial.height);
+      });
       const [status, setStatus] = useState(null);
+
+      const mode = record.mode;
+      const rememberPosition = record.rememberPosition;
+      const presets = record.presets;
+      const fixed = record.fixed;
+      const memorySize = current;
 
       function updateWidth(value) {
         setWidth(value);
@@ -381,6 +533,10 @@ window.__ModuleLoader__.load({
         setWidth(String(preset.width));
         setHeight(String(preset.height));
         setStatus(null);
+      }
+
+      function fail() {
+        setStatus({ tone: "error", text: t("storageFailed") });
       }
 
       function readDraft() {
@@ -405,16 +561,69 @@ window.__ModuleLoader__.load({
         return { width: nextWidth, height: nextHeight };
       }
 
+      function onMode(nextMode) {
+        if (!desktop || nextMode === mode) return;
+        const patch = { mode: nextMode };
+        let nextSize;
+        if (nextMode === "memory") {
+          patch.last = current;
+          if (!fixed) {
+            patch.width = current.width;
+            patch.height = current.height;
+          }
+          nextSize = current;
+        } else {
+          nextSize = fixed || record.last || current;
+          if (!fixed) {
+            patch.width = nextSize.width;
+            patch.height = nextSize.height;
+          }
+        }
+        const result = patchRecord(patch);
+        if (!result.ok) {
+          fail();
+          return;
+        }
+        setRecord(result.record);
+        setWidth(String(nextSize.width));
+        setHeight(String(nextSize.height));
+        setStatus({
+          tone: "success",
+          text: nextMode === "memory" ? t("modeMemoryDone") : t("modeFixedDone"),
+        });
+      }
+
+      function onTogglePosition() {
+        if (!desktop) return;
+        const next = !rememberPosition;
+        const point = next ? targetPoint(current, contentPoint()) : null;
+        const result = patchRecord(
+          next
+            ? { rememberPosition: true, position: point }
+            : { rememberPosition: null, position: null }
+        );
+        if (!result.ok) {
+          fail();
+          return;
+        }
+        setRecord(result.record);
+        setStatus({ tone: "success", text: next ? t("positionOn") : t("positionOff") });
+      }
+
       function onSave() {
         if (!desktop) return;
         const size = readDraft();
         if (!size) return;
-        if (!writeStored(size, presets)) {
-          setStatus({ tone: "error", text: t("storageFailed") });
+        const point = rememberPosition ? targetPoint(size, contentPoint()) : null;
+        const patch = { mode: "fixed", width: size.width, height: size.height };
+        if (rememberPosition) patch.position = point;
+        const result = patchRecord(patch);
+        if (!result.ok) {
+          fail();
           return;
         }
-        resizeToSize(size);
-        setRecord({ size, presets });
+        applyWindow(size, point);
+        setRecord(result.record);
         setWidth(String(size.width));
         setHeight(String(size.height));
         setStatus({ tone: "success", text: t("saved", size) });
@@ -436,11 +645,12 @@ window.__ModuleLoader__.load({
           return;
         }
         const next = presets.concat([size]);
-        if (!writeStored(stored, next)) {
-          setStatus({ tone: "error", text: t("storageFailed") });
+        const result = patchRecord({ presets: next });
+        if (!result.ok) {
+          fail();
           return;
         }
-        setRecord({ size: stored, presets: next });
+        setRecord(result.record);
         setStatus({ tone: "success", text: t("presetSaved", size) });
       }
 
@@ -449,25 +659,34 @@ window.__ModuleLoader__.load({
         const next = presets.filter(
           (item) => !(item.width === preset.width && item.height === preset.height)
         );
-        if (!writeStored(stored, next)) {
-          setStatus({ tone: "error", text: t("storageFailed") });
+        const result = patchRecord({ presets: next });
+        if (!result.ok) {
+          fail();
           return;
         }
-        setRecord({ size: stored, presets: next });
+        setRecord(result.record);
         setStatus({ tone: "success", text: t("presetRemoved", preset) });
       }
 
       function onReset() {
         if (!desktop) return;
-        if (!writeStored(null, presets)) {
-          setStatus({ tone: "error", text: t("storageFailed") });
+        const result = patchRecord({
+          mode: "fixed",
+          width: null,
+          height: null,
+          last: null,
+          position: null,
+          rememberPosition: null,
+        });
+        if (!result.ok) {
+          fail();
           return;
         }
         const size = clampSize({ width: DEFAULT_WIDTH, height: DEFAULT_HEIGHT });
-        resizeToSize(size);
-        setRecord({ size: null, presets });
-        setWidth(String(DEFAULT_WIDTH));
-        setHeight(String(DEFAULT_HEIGHT));
+        applyWindow(size, null);
+        setRecord(result.record);
+        setWidth(String(size.width));
+        setHeight(String(size.height));
         setStatus({ tone: "success", text: t("resetDone") });
       }
 
@@ -530,6 +749,175 @@ window.__ModuleLoader__.load({
         );
       });
 
+      const startupValue =
+        mode === "memory"
+          ? memorySize.width + " × " + memorySize.height
+          : fixed
+          ? fixed.width + " × " + fixed.height
+          : t("startupDefault", { width: DEFAULT_WIDTH, height: DEFAULT_HEIGHT });
+      const startupNote =
+        mode === "memory"
+          ? t("startupNoteMemory")
+          : fixed
+          ? t("startupNoteFixed")
+          : t("startupNoteDefault");
+      const positionValue = rememberPosition
+        ? record.position
+          ? t("positionLast")
+          : t("positionPending")
+        : t("positionCenter");
+      const positionNote = rememberPosition
+        ? t("positionNoteRemember")
+        : t("positionNoteCenter");
+
+      const statusNode = h(
+        "div",
+        {
+          className: "dws-status",
+          "data-tone": status ? status.tone : "info",
+          role: "status",
+          "aria-live": "polite",
+        },
+        status ? status.text : ""
+      );
+
+      const resetButton = h(
+        "button",
+        { type: "button", className: "dws-button", disabled: !desktop, onClick: onReset },
+        t("reset")
+      );
+
+      const fixedCard = h(
+        "div",
+        { className: "dws-card", key: "fixed" },
+        h("div", { className: "dws-section-label" }, t("resolution")),
+        h(
+          "div",
+          { className: "dws-fields" },
+          h(
+            "label",
+            { className: "dws-field" },
+            h("span", { className: "dws-field-label" }, t("width")),
+            h("input", {
+              className: "dws-input",
+              type: "number",
+              inputMode: "numeric",
+              min: MIN_WIDTH,
+              max: limit.width,
+              step: 1,
+              value: width,
+              disabled: !desktop,
+              "aria-label": t("width"),
+              onChange: (event) => updateWidth(event.target.value),
+            })
+          ),
+          h("span", { className: "dws-times" }, "×"),
+          h(
+            "label",
+            { className: "dws-field" },
+            h("span", { className: "dws-field-label" }, t("height")),
+            h("input", {
+              className: "dws-input",
+              type: "number",
+              inputMode: "numeric",
+              min: MIN_HEIGHT,
+              max: limit.height,
+              step: 1,
+              value: height,
+              disabled: !desktop,
+              "aria-label": t("height"),
+              onChange: (event) => updateHeight(event.target.value),
+            })
+          ),
+          h("span", { className: "dws-times" }, t("px"))
+        ),
+        h("div", { className: "dws-section-label" }, t("presets")),
+        h(
+          "div",
+          { className: "dws-presets" },
+          PRESET_GROUPS.map((group) =>
+            h(
+              "div",
+              { className: "dws-preset-group", key: group.ratio },
+              h("div", { className: "dws-preset-ratio" }, group.ratio),
+              h(
+                "div",
+                { className: "dws-chips", role: "group", "aria-label": group.ratio },
+                group.items.map((item) => presetChip(group, item))
+              )
+            )
+          )
+        ),
+        h("div", { className: "dws-divider" }),
+        h("div", { className: "dws-section-label" }, t("customPresets")),
+        h(
+          "div",
+          { className: "dws-chips", role: "group", "aria-label": t("customPresets") },
+          presets.length === 0 ? h("span", { className: "dws-hint" }, t("customEmpty")) : customChips
+        ),
+        h(
+          "p",
+          { className: "dws-hint" },
+          t("hint", {
+            minW: MIN_WIDTH,
+            minH: MIN_HEIGHT,
+            maxW: limit.width,
+            maxH: limit.height,
+          })
+        ),
+        h(
+          "div",
+          { className: "dws-actions" },
+          h(
+            "button",
+            {
+              type: "button",
+              className: "dws-button dws-button-primary",
+              disabled: !desktop,
+              onClick: onSave,
+            },
+            t("save")
+          ),
+          h(
+            "button",
+            {
+              type: "button",
+              className: "dws-button",
+              disabled: !desktop || presets.length >= PRESET_LIMIT,
+              onClick: onSavePreset,
+            },
+            t("savePreset")
+          ),
+          resetButton
+        ),
+        statusNode
+      );
+
+      const memoryCard = h(
+        "div",
+        { className: "dws-card", key: "memory" },
+        h("div", { className: "dws-section-label" }, t("memoryTitle")),
+        h(
+          "p",
+          { className: "dws-hint" },
+          t("memoryNote", { width: memorySize.width, height: memorySize.height })
+        ),
+        h("div", { className: "dws-divider" }),
+        h(
+          "div",
+          { className: "dws-row" },
+          h(
+            "div",
+            { className: "dws-row-label" },
+            h("div", { className: "dws-row-title" }, t("memoryLast")),
+            h("div", { className: "dws-row-sub" }, t("memoryLastNote"))
+          ),
+          h("div", { className: "dws-value" }, memorySize.width + " × " + memorySize.height)
+        ),
+        h("div", { className: "dws-actions" }, resetButton),
+        statusNode
+      );
+
       return h(
         "div",
         { className: "dws-page", "data-dsh-window-size": "root" },
@@ -568,137 +956,87 @@ window.__ModuleLoader__.load({
               "div",
               { className: "dws-row-label" },
               h("div", { className: "dws-row-title" }, t("startup")),
-              h(
-                "div",
-                { className: "dws-row-sub" },
-                stored ? t("storedValue", stored) : t("notSet")
-              )
+              h("div", { className: "dws-row-sub" }, startupNote)
             ),
+            h("div", { className: "dws-value" }, startupValue)
+          ),
+          h("div", { className: "dws-divider" }),
+          h(
+            "div",
+            { className: "dws-row" },
             h(
               "div",
-              { className: "dws-value" },
-              stored ? stored.width + " × " + stored.height : DEFAULT_WIDTH + " × " + DEFAULT_HEIGHT
-            )
+              { className: "dws-row-label" },
+              h("div", { className: "dws-row-title" }, t("position")),
+              h("div", { className: "dws-row-sub" }, positionNote)
+            ),
+            h("div", { className: "dws-value" }, positionValue)
           )
         ),
         h(
           "div",
-          { className: "dws-card", key: "form" },
-          h("div", { className: "dws-section-label" }, t("resolution")),
+          { className: "dws-card", key: "behavior" },
+          h("div", { className: "dws-section-label" }, t("modeLabel")),
           h(
             "div",
-            { className: "dws-fields" },
+            { className: "dws-segment", role: "group", "aria-label": t("modeLabel") },
             h(
-              "label",
-              { className: "dws-field" },
-              h("span", { className: "dws-field-label" }, t("width")),
-              h("input", {
-                className: "dws-input",
-                type: "number",
-                inputMode: "numeric",
-                min: MIN_WIDTH,
-                max: limit.width,
-                step: 1,
-                value: width,
+              "button",
+              {
+                type: "button",
+                className: "dws-segment-item",
+                "data-active": String(mode === "fixed"),
+                "aria-pressed": mode === "fixed",
                 disabled: !desktop,
-                "aria-label": t("width"),
-                onChange: (event) => updateWidth(event.target.value),
-              })
+                onClick: () => onMode("fixed"),
+              },
+              t("modeFixed")
             ),
-            h("span", { className: "dws-times" }, "×"),
             h(
-              "label",
-              { className: "dws-field" },
-              h("span", { className: "dws-field-label" }, t("height")),
-              h("input", {
-                className: "dws-input",
-                type: "number",
-                inputMode: "numeric",
-                min: MIN_HEIGHT,
-                max: limit.height,
-                step: 1,
-                value: height,
+              "button",
+              {
+                type: "button",
+                className: "dws-segment-item",
+                "data-active": String(mode === "memory"),
+                "aria-pressed": mode === "memory",
                 disabled: !desktop,
-                "aria-label": t("height"),
-                onChange: (event) => updateHeight(event.target.value),
-              })
-            ),
-            h("span", { className: "dws-times" }, t("px"))
-          ),
-          h("div", { className: "dws-section-label" }, t("presets")),
-          h(
-            "div",
-            { className: "dws-presets" },
-            PRESET_GROUPS.map((group) =>
-              h(
-                "div",
-                { className: "dws-preset-group", key: group.ratio },
-                h("div", { className: "dws-preset-ratio" }, group.ratio),
-                h(
-                  "div",
-                  { className: "dws-chips", role: "group", "aria-label": group.ratio },
-                  group.items.map((item) => presetChip(group, item))
-                )
-              )
+                onClick: () => onMode("memory"),
+              },
+              t("modeMemory")
             )
-          ),
-          h("div", { className: "dws-divider" }),
-          h("div", { className: "dws-section-label" }, t("customPresets")),
-          h(
-            "div",
-            { className: "dws-chips", role: "group", "aria-label": t("customPresets") },
-            presets.length === 0 ? h("span", { className: "dws-hint" }, t("customEmpty")) : customChips
           ),
           h(
             "p",
             { className: "dws-hint" },
-            t("hint", {
-              minW: MIN_WIDTH,
-              minH: MIN_HEIGHT,
-              maxW: limit.width,
-              maxH: limit.height,
-            })
+            mode === "memory" ? t("modeMemoryHint") : t("modeFixedHint")
           ),
+          h("div", { className: "dws-divider" }),
           h(
             "div",
-            { className: "dws-actions" },
+            { className: "dws-row" },
+            h(
+              "div",
+              { className: "dws-row-label" },
+              h("div", { className: "dws-row-title" }, t("rememberPosition")),
+              h("div", { className: "dws-row-sub" }, t("rememberPositionHint"))
+            ),
             h(
               "button",
               {
                 type: "button",
-                className: "dws-button dws-button-primary",
+                className: "dws-switch",
+                role: "switch",
+                "aria-checked": rememberPosition,
+                "data-on": String(rememberPosition),
                 disabled: !desktop,
-                onClick: onSave,
+                onClick: onTogglePosition,
               },
-              t("save")
-            ),
-            h(
-              "button",
-              {
-                type: "button",
-                className: "dws-button",
-                disabled: !desktop || presets.length >= PRESET_LIMIT,
-                onClick: onSavePreset,
-              },
-              t("savePreset")
-            ),
-            h(
-              "button",
-              { type: "button", className: "dws-button", disabled: !desktop, onClick: onReset },
-              t("reset")
+              h("span", { className: "dws-switch-track" }, h("span", { className: "dws-switch-thumb" })),
+              h("span", { className: "dws-switch-label" }, rememberPosition ? t("on") : t("off"))
             )
-          ),
-          h(
-            "div",
-            {
-              className: "dws-status",
-              "data-tone": status ? status.tone : "info",
-              role: "status",
-              "aria-live": "polite",
-            },
-            status ? status.text : ""
           )
-        )
+        ),
+        mode === "memory" ? memoryCard : fixedCard
       );
     }
 
@@ -707,9 +1045,8 @@ window.__ModuleLoader__.load({
       apply(ctx) {
         ctx.effect(() => ctx.locale.register(NS, DICTS), "dsh-window-size: dictionaries");
         const t = ctx.locale.bind(NS);
-        /* The boot size is applied by the index injection in index.js, which
-           runs before the window is shown; resizing here would be too late
-           and would also re-add the frame while the window is hidden. */
+        /* The startup size and position are applied by index.js before the
+           window is shown; resizing here would be too late. */
         ctx.slots.inject("settings.section", () =>
           ctx.slots.register(
             {
