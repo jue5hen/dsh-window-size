@@ -9,7 +9,7 @@
 [![validate](https://github.com/jue5hen/dsh-window-size/actions/workflows/validate.yml/badge.svg?branch=main)](https://github.com/jue5hen/dsh-window-size/actions/workflows/validate.yml)
 ![DSH](https://img.shields.io/badge/DSH-0.2.1--rc.5-4B6EF5.svg)
 
-![窗口大小设置面板](docs/screenshot.png)
+![窗口大小设置面板](docs/screenshot.png?v=1.1.0)
 
 DSH 桌面版每次启动固定为 **1280×820**，不会记住你调整过的窗口大小或位置：代码里 `createWindow` 写死了尺寸，也没有保存/恢复窗口 bounds 的逻辑。这个插件补上这一块——在设置面板里选择启动模式、保存尺寸和位置，页面启动阶段按保存值调整窗口，下次打开就是你要的样子。
 

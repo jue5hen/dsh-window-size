@@ -9,7 +9,7 @@
 [![validate](https://github.com/jue5hen/dsh-window-size/actions/workflows/validate.yml/badge.svg?branch=main)](https://github.com/jue5hen/dsh-window-size/actions/workflows/validate.yml)
 ![DSH](https://img.shields.io/badge/DSH-0.2.1--rc.5-4B6EF5.svg)
 
-![Window size settings page](docs/screenshot.png)
+![Window size settings page](docs/screenshot.png?v=1.1.0)
 
 DSH Desktop always starts at **1280×820** and does not remember a resized window or where you left it: `createWindow` hardcodes the size and there is no bounds save/restore logic. This plugin fills that gap — choose a startup mode, save a size and position in the settings panel, and the window is adjusted during page startup so the next launch opens the way you want.
 
